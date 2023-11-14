@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@walletconnect/ethereum-provider": "2.10.1",
-    "@walletconnect/modal": "^2.6.0",
+    "@walletconnect/ethereum-provider": "2.10.5-canary-01",
+    "@walletconnect/modal": "^2.6.2",
     "solid-js": "^1.7.8",
     "viem": "^1.19.0"
   },

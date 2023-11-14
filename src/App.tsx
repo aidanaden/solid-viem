@@ -23,7 +23,7 @@ const projectId = "fdb8164b4aa07b46f14e131f5c7c5903";
 const provider = await EthereumProvider.init({
   chains: [1],
   projectId,
-  showQrModal: false,
+  showQrModal: true,
 });
 
 const publicClient = createPublicClient({
