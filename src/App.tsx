@@ -1,4 +1,4 @@
-import { Show, createEffect, createSignal } from "solid-js";
+import { Show, createEffect, createSignal, onMount } from "solid-js";
 import solidLogo from "./assets/solid.svg";
 import viteLogo from "/vite.svg";
 import "./App.css";
@@ -14,6 +14,7 @@ import {
   custom,
   parseEther,
   stringify,
+  type WalletClient,
 } from "viem";
 import { mainnet } from "viem/chains";
 import "viem/window";
@@ -30,12 +31,9 @@ const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
 });
-const walletClient = createWalletClient({
-  chain: mainnet,
-  transport: custom(window.ethereum!),
-});
 
 function App() {
+  const [client, setClient] = createSignal<WalletClient | undefined>();
   const [account, setAccount] = createSignal<Address>();
   const [hash, setHash] = createSignal<Hash>();
   const [receipt, setReceipt] = createSignal<TransactionReceipt>();
@@ -46,38 +44,49 @@ function App() {
   let valueInput: HTMLInputElement;
 
   const connectMobile = async () => {
+    const _client = client();
+    if (!_client) {
+      return;
+    }
     await provider.connect();
-    const [address] = await walletClient.getAddresses();
+    const [address] = await _client.getAddresses();
     setAccount(address);
   };
 
   const connect = async () => {
     // await provider.connect();
-    const [address] = await walletClient.requestAddresses();
+    const _client = client();
+    if (!_client) {
+      return;
+    }
+    const [address] = await _client.requestAddresses();
     setAccount(address);
   };
 
   const sendTransaction = async () => {
+    const _client = client();
     const acc = account();
-    if (!acc) {
+    if (!_client || !acc) {
       return;
     }
-    const hash = await walletClient.sendTransaction({
+    const hash = await _client.sendTransaction({
       account: acc,
       to: addressInput.value as Address,
       value: parseEther(valueInput.value as `${number}`),
+      chain: undefined,
     });
     console.log("test", hash);
     setHash(hash);
   };
 
   const signMessage = async () => {
+    const _client = client();
     const acc = account();
     const _msg = msg();
-    if (!acc || !_msg) {
+    if (!acc || !_msg || !_client) {
       return;
     }
-    const sign = await walletClient.signMessage({
+    const sign = await _client.signMessage({
       account: acc,
       message: _msg,
     });
@@ -115,6 +124,18 @@ function App() {
     setReceipt(receipt);
   });
 
+  onMount(() => {
+    if (!window.ethereum) {
+      alert("Please install a valid eth wallet!");
+    } else {
+      const walletClient = createWalletClient({
+        chain: mainnet,
+        transport: custom(window.ethereum),
+      });
+      setClient(walletClient);
+    }
+  });
+
   return (
     <>
       <div class="flex items-center justify-center">
@@ -127,50 +148,55 @@ function App() {
       </div>
       <h1>Vite + Solid</h1>
       <Show
-        when={account()}
-        fallback={
-          <div>
-            <button onClick={connect}>Connect Wallet</button>
-            <button onClick={connectMobile}>Connect WalletConnect</button>
-          </div>
-        }
+        when={window.ethereum}
+        fallback={<span>Please install an eth wallet extension</span>}
       >
-        {(acc) => (
-          <>
-            <div>Connected: {acc()}</div>
-            <div class="flex gap-3">
-              <input ref={addressInput} placeholder="address" />
-              <input ref={valueInput} placeholder="value (ether)" />
-              <button onClick={sendTransaction}>Send Tx</button>
+        <Show
+          when={account()}
+          fallback={
+            <div>
+              <button onClick={connect}>Connect Wallet</button>
+              <button onClick={connectMobile}>Connect WalletConnect</button>
             </div>
-            <div class="flex gap-3">
-              <input
-                value={msg()}
-                onInput={(e) => setMsg(e.target.value)}
-                placeholder="message"
-              />
-              <button onClick={signMessage}>Sign Message</button>
-            </div>
-            <div class="flex gap-3">
-              <input
-                value={sig()}
-                onInput={(e) => setSig(e.target.value)}
-                placeholder="signature"
-              />
-              <button onClick={verifySignature}>Verify Signature</button>
-            </div>
-            <Show when={receipt()}>
-              {(rec) => (
-                <div>
-                  Receipt:{" "}
-                  <pre>
-                    <code>{stringify(rec(), null, 2)}</code>
-                  </pre>
-                </div>
-              )}
-            </Show>
-          </>
-        )}
+          }
+        >
+          {(acc) => (
+            <>
+              <div>Connected: {acc()}</div>
+              <div class="flex gap-3">
+                <input ref={addressInput} placeholder="address" />
+                <input ref={valueInput} placeholder="value (ether)" />
+                <button onClick={sendTransaction}>Send Tx</button>
+              </div>
+              <div class="flex gap-3">
+                <input
+                  value={msg()}
+                  onInput={(e) => setMsg(e.target.value)}
+                  placeholder="message"
+                />
+                <button onClick={signMessage}>Sign Message</button>
+              </div>
+              <div class="flex gap-3">
+                <input
+                  value={sig()}
+                  onInput={(e) => setSig(e.target.value)}
+                  placeholder="signature"
+                />
+                <button onClick={verifySignature}>Verify Signature</button>
+              </div>
+              <Show when={receipt()}>
+                {(rec) => (
+                  <div>
+                    Receipt:{" "}
+                    <pre>
+                      <code>{stringify(rec(), null, 2)}</code>
+                    </pre>
+                  </div>
+                )}
+              </Show>
+            </>
+          )}
+        </Show>
       </Show>
     </>
   );
